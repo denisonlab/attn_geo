@@ -2,6 +2,8 @@
 
 Data and analysis code for "Attention reshapes the representational geometry of a perceptual feature space" by Angus Chapman, Melissa Allouche and Rachel Denison.
 
+The full manuscript is available as a preprint on [bioRxiv](https://doi.org/10.1101/2025.08.28.672962).
+
 contact: Angus Chapman, angusc@bu.edu
 
 ## File summary
