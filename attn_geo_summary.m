@@ -210,7 +210,7 @@ end
 legend({'Attend -45','Attend +45','No attention'})
 
 % plot 3-D coordinate space
-norm_coords = [cond.fit; cond.fit(1,:,:,:,:)]./mean(vecnorm(cond.fit,2,2),1);
+norm_coords = cond.fit([1:end 1],:,:,:,:) ./ sum(vecnorm(diff(cond.fit([1:end 1],:,:,:,:),[],1),2,2),1);
 figure
 p = plot3(squeeze(mean(norm_coords(:,1,:,:,3),4)), ...
     squeeze(mean(norm_coords(:,2,:,:,3),4)), ...
@@ -219,7 +219,7 @@ p = plot3(squeeze(mean(norm_coords(:,1,:,:,3),4)), ...
 p(1).Color = [1 .4 .4];
 p(2).Color = [.4 .4 1];
 p(3).Color = [.8 .8 .8];
-axis([-1.25 1.25 -1.25 1.25 -1.25 1.25])
+axis([-0.15 0.15 -0.15 0.15 -0.15 0.15])
 axis square
 view(-30,15)
 
@@ -251,5 +251,71 @@ for kk=1:4
     plot(1:3,length.cond_bin_norm(:,:,4,kk))
     plot(1:3,mean(length.cond_bin_norm(:,:,4,kk),2),'k-','LineWidth',2)
     axis([0.5 3.5 0 0.4])
+    xticks(1:3)
+    xticklabels({'Attend -45°','Attend +45°','No attention'})
     title(sprintf('Bin: %ddeg',(kk-1)*45))
 end
+
+%% Sliding window for local lengths
+wind = 4; % ±4 stim around each orientation
+
+diff_coords = diff(norm_coords,[],1);
+for ii=36:-1:1
+    this_set = mod(ii-wind:wind+ii,36);
+    this_set(this_set==0) = 36;
+    slide.cond_length(:,:,:,ii) = squeeze(sum(vecnorm(diff(cond.fit(this_set,:,:,:,:),[],1),2,2),1));
+end
+
+slide.cond_length_norm = slide.cond_length ./ length.total;
+
+figure, hold on
+xline([-45 45],'k--')
+p = plot(-85:5:90,circshift(squeeze(mean(slide.cond_length_norm(:,:,4,:),2)),17,2),...
+    'LineWidth',2);
+axis([-90 90 0.1 0.3])
+xticks(-90:45:90)
+p(1).Color = [1 .4 .4];
+p(2).Color = [.4 .4 1];
+p(3).Color = [.8 .8 .8];
+legend({'','','Attend -45','Attend +45','No attention'})
+
+%% Varying window sizes for expansion and compression
+
+for wind=18:-1:1
+    this_set = mod([10 28]'+(-wind:wind),36);
+    this_set(this_set==0) = 36;
+
+    % width around target orientation
+    slide.cond_length_wind(wind,1,:,:) = squeeze(0.5 .* (sum(vecnorm(diff(norm_coords(this_set(1,:),:,2,:,:),[],1),2,2),1) + ...
+        sum(vecnorm(diff(norm_coords(this_set(2,:),:,1,:,:),[],1),2,2),1))) ./ (10*wind);
+
+    % width around distractor orientation
+    slide.cond_length_wind(wind,2,:,:) = squeeze(0.5 .* (sum(vecnorm(diff(norm_coords(this_set(1,:),:,1,:,:),[],1),2,2),1) + ...
+        sum(vecnorm(diff(norm_coords(this_set(2,:),:,2,:,:),[],1),2,2),1))) ./ (10*wind);
+
+    % width under no attention
+    slide.cond_length_wind(wind,3,:,:) = squeeze(0.5 .* (sum(vecnorm(diff(norm_coords(this_set(1,:),:,3,:,:),[],1),2,2),1) + ...
+        sum(vecnorm(diff(norm_coords(this_set(2,:),:,3,:,:),[],1),2,2),1))) ./ (10*wind);
+end
+
+figure
+p = plot(10:10:180,mean(slide.cond_length_wind(:,:,:,4),3),'LineWidth',2);
+axis([0 180 5e-3 7e-3])
+xticks([10 30:30:180])
+p(1).Color = "#fdc086";
+p(2).Color = "#beaed4";
+p(3).Color = [.8 .8 .8];
+legend({'Target','Distractor','No attention'})
+
+% comparing target and distractor lengths across different windows
+slide.length_diff_wind = (reshape(slide.cond_length_wind(1:17,1,:,:),1,17,10,10) - ...
+    slide.cond_length_wind(1:17,2,:,:)) .* flipud(tril(true(17)));
+
+figure
+imagesc(mean(slide.length_diff_wind(end:-1:1,:,:,4),3))
+xticks(3:3:17), xticklabels(30:30:180)
+yticks(3:3:17), yticklabels(150:-30:30)
+xlabel('Width around target')
+ylabel('Width around distractor')
+axis square
+clim([-1.75e-3 1.75e-3])
